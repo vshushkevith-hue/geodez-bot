@@ -2,29 +2,15 @@ import json
 import random
 import time
 import os
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from flask import Flask, request
 import telebot
 from telebot import types
 
-# --- 1. ФОНОВИЙ ВЕБ-СЕРВЕР ДЛЯ RENDER ---
-class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Bot is running!")
-    def log_message(self, format, *args):
-        pass
-
-def start_web():
-    port = int(os.environ.get("PORT", 10000))
-    HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
-
-threading.Thread(target=start_web, daemon=True).start()
-
-# --- 2. НАЛАШТУВАННЯ БОТА ---
 TOKEN = "9182868414:AAGuB4M8xCr1o3Ws_s4dvgMrjc50j9rxWtQ"
-bot = telebot.TeleBot(TOKEN)
+WEBHOOK_URL = "https://onrender.com"
+
+bot = telebot.TeleBot(TOKEN, threaded=False)
+app = Flask(__name__)
 
 with open("questions.json", "r", encoding="utf-8") as f:
     QUESTIONS = json.load(f)
@@ -148,7 +134,7 @@ def on_answer(call):
     except Exception:
         pass
 
-    chosen = int(call.data.split("_")[1])
+    chosen = int(call.data.split("_"))
     q = st["questions"][st["index"]]
     is_ok = (chosen == q["correct"])
 
@@ -211,10 +197,25 @@ def finish_exam(chat_id, uid, timeout=False):
 def fallback(message):
     bot.send_message(message.chat.id, "Оберіть режим на клавіатурі нижче або натисніть /start:", reply_markup=main_menu())
 
-print("Бот запускається...", flush=True)
-while True:
+@app.route(f"/{TOKEN}", methods=["POST"])
+def receive_update():
+    json_str = request.get_data().decode("UTF-8")
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return "OK", 200
+
+@app.route("/")
+def index():
+    return "Geodez Bot is active!", 200
+
+if __name__ == "__main__":
+    time.sleep(2)
     try:
-        bot.infinity_polling(timeout=30, long_polling_timeout=30)
+        bot.remove_webhook()
+        time.sleep(1)
+        bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}")
+        print("Webhook успішно встановлено!", flush=True)
     except Exception as e:
-        print("Перезапуск polling через збій:", e, flush=True)
-        time.sleep(5)
+        print("Помилка встановлення webhook:", e, flush=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
