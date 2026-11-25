@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Тренажер сертифікації: Геодезист та Землевпорядник</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --success: #16a34a;
+    --success-bg: #dcfce7;
+    --danger: #dc2626;
+    --danger-bg: #fee2e2;
+  }
+  * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.5; }
+  .container { max-width: 840px; margin: 0 auto; padding: 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 16px; }
+  h1 { font-size: 1.5rem; margin: 0 0 8px; }
+  .subtitle { color: var(--muted); font-size: 0.95rem; margin-bottom: 20px; }
+  .prof-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+  .prof-btn {
+    padding: 14px 16px; border-radius: 10px; border: 2px solid var(--border);
+    background: var(--card); cursor: pointer; text-align: left; transition: all 0.15s;
+  }
+  .prof-btn.active { border-color: var(--primary); background: #eff6ff; }
+  .prof-title { font-weight: 700; font-size: 1.05rem; display: block; margin-bottom: 2px; }
+  .prof-meta { font-size: 0.85rem; color: var(--muted); }
+  .modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 18px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text); font-weight: 600; font-size: 0.95rem;
+    cursor: pointer; transition: all 0.15s; text-align: center;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+  .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); color: #fff; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .header-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .badge { background: #e0e7ff; color: var(--primary); padding: 4px 10px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
+  .timer { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.05rem; color: var(--danger); }
+  .q-text { font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn {
+    text-align: left; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px;
+    background: #fff; cursor: pointer; font-size: 0.98rem; transition: all 0.15s; display: flex; gap: 10px;
+  }
+  .opt-btn:hover:not(:disabled) { border-color: var(--primary); background: #f8fafc; }
+  .opt-btn.selected { border-color: var(--primary); background: #eff6ff; font-weight: 500; }
+  .opt-btn.correct { border-color: var(--success); background: var(--success-bg); color: #14532d; font-weight: 600; }
+  .opt-btn.wrong { border-color: var(--danger); background: var(--danger-bg); color: #7f1d1d; }
+  .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; gap: 10px; flex-wrap: wrap; }
+  .search-box { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; margin-bottom: 16px; }
+  .stats-row { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.9rem; color: var(--muted); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- HOME SCREEN -->
+  <div id="screen-home" class="card">
+    <h1>Підготовка до сертифікаційного іспиту</h1>
+    <p class="subtitle">Оберіть напрямок сертифікації та режим тренування</p>
+
+    <div class="prof-switch">
+      <button id="prof-geo" class="prof-btn active" onclick="selectProfession('geo')">
+        <span class="prof-title">🧭 Інженер-геодезист</span>
+        <span class="prof-meta" id="meta-geo">Завантаження бази...</span>
+      </button>
+      <button id="prof-zem" class="prof-btn" onclick="selectProfession('zem')">
+        <span class="prof-title">🗺️ Інженер-землевпорядник</span>
+        <span class="prof-meta" id="meta-zem">Завантаження бази...</span>
+      </button>
+    </div>
+
+    <div class="modes">
+      <button class="btn btn-primary" onclick="startQuiz('exam')">⏱️ Пробний іспит (50 питань / 45 хв)</button>
+      <button class="btn" onclick="startQuiz('practice')">📚 Тренування (усі питання по порядку)</button>
+      <button class="btn" onclick="startQuiz('random')">🔀 Випадковий марафон</button>
+      <button class="btn" id="btn-mistakes" onclick="startQuiz('mistakes')">⚠️ Робота над помилками (0)</button>
+      <button class="btn" onclick="openSearch()">🔍 Пошук по базі питань</button>
+    </div>
+
+    <div class="stats-row" id="home-stats"></div>
+  </div>
+
+  <!-- QUIZ SCREEN -->
+  <div id="screen-quiz" class="card hidden">
+    <div class="header-bar">
+      <div>
+        <span class="badge" id="quiz-prof-badge">Геодезист</span>
+        <span class="badge" id="quiz-progress">1 / 50</span>
+      </div>
+      <div id="quiz-timer" class="timer hidden">45:00</div>
+      <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="exitToHome()">✕ Завершити</button>
+    </div>
+
+    <div class="q-text" id="q-text"></div>
+    <div class="options" id="q-options"></div>
+
+    <div class="nav-bar">
+      <button class="btn" id="btn-prev" onclick="prevQuestion()">← Назад</button>
+      <span id="instant-feedback" style="font-weight: 600;"></span>
+      <button class="btn btn-primary" id="btn-next" onclick="nextQuestion()">Далі →</button>
+    </div>
+  </div>
+
+  <!-- RESULT SCREEN -->
+  <div id="screen-result" class="card hidden">
+    <h1 id="res-title">Результат тестування</h1>
+    <p class="subtitle" id="res-summary"></p>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+      <button class="btn btn-primary" onclick="exitToHome()">На головну</button>
+      <button class="btn" id="btn-retry-mistakes" onclick="startQuiz('mistakes')">Робота над помилками</button>
+    </div>
+    <div id="res-review"></div>
+  </div>
+
+  <!-- SEARCH SCREEN -->
+  <div id="screen-search" class="card hidden">
+    <div class="header-bar">
+      <h1 style="margin:0;">Пошук по базі (<span id="search-prof-name"></span>)</h1>
+      <button class="btn" onclick="exitToHome()">← Назад</button>
+    </div>
+    <input type="text" id="search-input" class="search-box" placeholder="Введіть ключове слово або номер питання..." oninput="renderSearch()">
+    <div id="search-results"></div>
+  </div>
+</div>
+
+<script>
+const DB_FILES = {
+  geo: { name: 'Інженер-геодезист', file: 'questions.json', storageKey: 'cert_mistakes_geo' },
+  zem: { name: 'Інженер-землевпорядник', file: 'questions_zem.json', storageKey: 'cert_mistakes_zem' }
+};
+
+let databases = { geo: [], zem: [] };
+let currentProf = 'geo';
+let quizState = null;
+let timerInterval = null;
+
+async function init() {
+  for (const key of ['geo', 'zem']) {
+    try {
+      const res = await fetch(DB_FILES[key].file);
+      if (res.ok) {
+        databases[key] = await res.json();
+        document.getElementById('meta-' + key).textContent = `${databases[key].length} питань у базі`;
+      } else {
+        document.getElementById('meta-' + key).textContent = `Файл ${DB_FILES[key].file} не знайдено`;
+      }
+    } catch (e) {
+      document.getElementById('meta-' + key).textContent = `Помилка завантаження ${DB_FILES[key].file}`;
+    }
+  }
+  updateHomeUI();
+}
+
+function selectProfession(prof) {
+  currentProf = prof;
+  document.getElementById('prof-geo').classList.toggle('active', prof === 'geo');
+  document.getElementById('prof-zem').classList.toggle('active', prof === 'zem');
+  updateHomeUI();
+}
+
+function getMistakes() {
+  try {
+    return JSON.parse(localStorage.getItem(DB_FILES[currentProf].storageKey) || '[]');
+  } catch { return []; }
+}
+
+function saveMistakes(arr) {
+  localStorage.setItem(DB_FILES[currentProf].storageKey, JSON.stringify([...new Set(arr)]));
+}
+
+function updateHomeUI() {
+  const db = databases[currentProf] || [];
+  const mistakes = getMistakes();
+  const btnMistakes = document.getElementById('btn-mistakes');
+  btnMistakes.textContent = `⚠️ Робота над помилками (${mistakes.length})`;
+  btnMistakes.disabled = mistakes.length === 0;
+  document.getElementById('home-stats').innerHTML = `
+    <span>Напрямок: <b>${DB_FILES[currentProf].name}</b></span>
+    <span>Усього питань: <b>${db.length}</b></span>
+    <span>Умова складання іспиту: <b>40 / 50 балів за 45 хв</b></span>
+  `;
+}
+
+function showScreen(id) {
+  ['screen-home', 'screen-quiz', 'screen-result', 'screen-search'].forEach(s => {
+    document.getElementById(s).classList.toggle('hidden', s !== id);
+  });
+}
+
+function startQuiz(mode) {
+  const db = databases[currentProf];
+  if (!db || !db.length) {
+    alert(`База питань (${DB_FILES[currentProf].file}) порожня або не завантажена.`);
+    return;
+  }
+
+  let pool = [];
+  if (mode === 'exam') {
+    pool = [...db].sort(() => Math.random() - 0.5).slice(0, 50);
+  } else if (mode === 'practice') {
+    pool = [...db];
+  } else if (mode === 'random') {
+    pool = [...db].sort(() => Math.random() - 0.5);
+  } else if (mode === 'mistakes') {
+    const mIds = new Set(getMistakes());
+    pool = db.filter(q => mIds.has(q.id));
+  }
+
+  quizState = {
+    mode,
+    questions: pool,
+    index: 0,
+    answers: {},
+    secondsLeft: 45 * 60
+  };
+
+  document.getElementById('quiz-prof-badge').textContent = DB_FILES[currentProf].name;
+  const timerEl = document.getElementById('quiz-timer');
+  clearInterval(timerInterval);
+
+  if (mode === 'exam') {
+    timerEl.classList.remove('hidden');
+    updateTimerDisplay();
+    timerInterval = setInterval(() => {
+      quizState.secondsLeft--;
+      updateTimerDisplay();
+      if (quizState.secondsLeft <= 0) finishQuiz();
+    }, 1000);
+  } else {
+    timerEl.classList.add('hidden');
+  }
+
+  showScreen('screen-quiz');
+  renderQuestion();
+}
+
+function updateTimerDisplay() {
+  const m = String(Math.floor(quizState.secondsLeft / 60)).padStart(2, '0');
+  const s = String(quizState.secondsLeft % 60).padStart(2, '0');
+  document.getElementById('quiz-timer').textContent = `${m}:${s}`;
+}
+
+function renderQuestion() {
+  const q = quizState.questions[quizState.index];
+  const total = quizState.questions.length;
+  document.getElementById('quiz-progress').textContent = `Питання ${quizState.index + 1} з ${total} (№${q.id})`;
+  document.getElementById('q-text').textContent = `${q.id}. ${q.question}`;
+
+  const chosen = quizState.answers[q.id];
+  const isInstant = quizState.mode !== 'exam';
+  const optsEl = document.getElementById('q-options');
+  optsEl.innerHTML = '';
+
+  const letters = ['А', 'Б', 'В', 'Г', 'Д'];
+  q.options.forEach((optText, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'opt-btn';
+    btn.innerHTML = `<b>${letters[idx] || idx + 1})</b> <span>${optText}</span>`;
+
+    if (chosen !== undefined) {
+      if (isInstant) {
+        btn.disabled = true;
+        if (idx === q.correct) btn.classList.add('correct');
+        else if (idx === chosen) btn.classList.add('wrong');
+      } else if (idx === chosen) {
+        btn.classList.add('selected');
+      }
+    }
+
+    btn.onclick = () => selectAnswer(idx);
+    optsEl.appendChild(btn);
+  });
+
+  const fb = document.getElementById('instant-feedback');
+  if (isInstant && chosen !== undefined) {
+    fb.textContent = chosen === q.correct ? '✅ Правильно!' : '❌ Помилка!';
+    fb.style.color = chosen === q.correct ? 'var(--success)' : 'var(--danger)';
+  } else {
+    fb.textContent = '';
+  }
+
+  document.getElementById('btn-prev').disabled = quizState.index === 0;
+  document.getElementById('btn-next').textContent = quizState.index === total - 1 ? 'Завершити тест ✓' : 'Далі →';
+}
+
+function selectAnswer(idx) {
+  const q = quizState.questions[quizState.index];
+  quizState.answers[q.id] = idx;
+
+  let mistakes = getMistakes();
+  if (idx !== q.correct) {
+    mistakes.push(q.id);
+  } else if (quizState.mode === 'mistakes') {
+    mistakes = mistakes.filter(id => id !== q.id);
+  }
+  saveMistakes(mistakes);
+
+  renderQuestion();
+}
+
+function prevQuestion() {
+  if (quizState.index > 0) {
+    quizState.index--;
+    renderQuestion();
+  }
+}
+
+function nextQuestion() {
+  if (quizState.index < quizState.questions.length - 1) {
+    quizState.index++;
+    renderQuestion();
+  } else {
+    finishQuiz();
+  }
+}
+
+function finishQuiz() {
+  clearInterval(timerInterval);
+  const total = quizState.questions.length;
+  let correctCount = 0;
+  const reviewHtml = [];
+  const letters = ['А', 'Б', 'В', 'Г', 'Д'];
+
+  quizState.questions.forEach(q => {
+    const chosen = quizState.answers[q.id];
+    const isOk = chosen === q.correct;
+    if (isOk) correctCount++;
+    else {
+      reviewHtml.push(`
+        <div style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px;">
+          <div style="font-weight: 600; margin-bottom: 6px;">${q.id}. ${q.question}</div>
+          <div style="color: var(--danger); font-size: 0.9rem;">Ваша відповідь: ${chosen !== undefined ? letters[chosen] + ') ' + q.options[chosen] : 'Не надано'}</div>
+          <div style="color: var(--success); font-size: 0.9rem; font-weight: 600;">Правильно: ${letters[q.correct]}) ${q.options[q.correct]}</div>
+        </div>
+      `);
+    }
+  });
+
+  const passed = quizState.mode === 'exam' ? correctCount >= 40 : true;
+  document.getElementById('res-title').textContent = quizState.mode === 'exam'
+    ? (passed ? '🎉 Іспит складено!' : '😔 Іспит не складено')
+    : 'Тестування завершено';
+  document.getElementById('res-summary').textContent = `Напрямок: ${DB_FILES[currentProf].name}. Правильних відповідей: ${correctCount} з ${total} (${Math.round(correctCount / total * 100)}%).`;
+  document.getElementById('res-review').innerHTML = reviewHtml.length
+    ? `<h3>Помилки (${reviewHtml.length}):</h3>` + reviewHtml.join('')
+    : '<p style="color: var(--success); font-weight: 600;">Жодної помилки! Відмінний результат.</p>';
+
+  document.getElementById('btn-retry-mistakes').disabled = getMistakes().length === 0;
+  showScreen('screen-result');
+}
+
+function exitToHome() {
+  clearInterval(timerInterval);
+  updateHomeUI();
+  showScreen('screen-home');
+}
+
+function openSearch() {
+  document.getElementById('search-prof-name').textContent = DB_FILES[currentProf].name;
+  document.getElementById('search-input').value = '';
+  showScreen('screen-search');
+  renderSearch();
+}
+
+function renderSearch() {
+  const qStr = document.getElementById('search-input').value.trim().toLowerCase();
+  const db = databases[currentProf] || [];
+  const filtered = qStr
+    ? db.filter(q => String(q.id) === qStr || q.question.toLowerCase().includes(qStr) || q.options.some(o => o.toLowerCase().includes(qStr)))
+    : db.slice(0, 50);
+
+  const letters = ['А', 'Б', 'В', 'Г', 'Д'];
+  document.getElementById('search-results').innerHTML = filtered.slice(0, 100).map(q => `
+    <div style="padding: 12px; border-bottom: 1px solid var(--border);">
+      <div style="font-weight: 600; margin-bottom: 6px;">${q.id}. ${q.question}</div>
+      ${q.options.map((o, i) => `
+        <div style="font-size: 0.92rem; ${i === q.correct ? 'color: var(--success); font-weight: 700;' : 'color: var(--muted);'}">
+          ${letters[i]}) ${o}
+        </div>
+      `).join('')}
+    </div>
+  `).join('') || '<p>Нічого не знайдено.</p>';
+}
+
+init();
+</script>
+</body>
+</html>
