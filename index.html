@@ -66,11 +66,9 @@
 </head>
 <body>
 <div class="container">
-  <!-- HOME SCREEN -->
   <div id="screen-home" class="card">
     <h1>Підготовка до сертифікаційного іспиту</h1>
     <p class="subtitle">Оберіть напрямок сертифікації та режим тренування</p>
-
     <div class="prof-switch">
       <button id="prof-geo" class="prof-btn active" onclick="selectProfession('geo')">
         <span class="prof-title">🧭 Інженер-геодезист</span>
@@ -81,7 +79,6 @@
         <span class="prof-meta" id="meta-zem">Завантаження бази...</span>
       </button>
     </div>
-
     <div class="modes">
       <button class="btn btn-primary" onclick="startQuiz('exam')">⏱️ Пробний іспит (50 питань / 45 хв)</button>
       <button class="btn" onclick="startQuiz('practice')">📚 Тренування (усі питання по порядку)</button>
@@ -89,11 +86,9 @@
       <button class="btn" id="btn-mistakes" onclick="startQuiz('mistakes')">⚠️ Робота над помилками (0)</button>
       <button class="btn" onclick="openSearch()">🔍 Пошук по базі питань</button>
     </div>
-
     <div class="stats-row" id="home-stats"></div>
   </div>
 
-  <!-- QUIZ SCREEN -->
   <div id="screen-quiz" class="card hidden">
     <div class="header-bar">
       <div>
@@ -103,11 +98,9 @@
       <div id="quiz-timer" class="timer hidden">45:00</div>
       <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="exitToHome()">✕ Завершити</button>
     </div>
-
     <div class="q-text" id="q-text"></div>
     <div class="options" id="q-options"></div>
     <div class="explanation-box hidden" id="q-explanation"></div>
-
     <div class="nav-bar">
       <button class="btn" id="btn-prev" onclick="prevQuestion()">← Назад</button>
       <span id="instant-feedback" style="font-weight: 600;"></span>
@@ -115,7 +108,6 @@
     </div>
   </div>
 
-  <!-- RESULT SCREEN -->
   <div id="screen-result" class="card hidden">
     <h1 id="res-title">Результат тестування</h1>
     <p class="subtitle" id="res-summary"></p>
@@ -126,7 +118,6 @@
     <div id="res-review"></div>
   </div>
 
-  <!-- SEARCH SCREEN -->
   <div id="screen-search" class="card hidden">
     <div class="header-bar">
       <h1 style="margin:0;">Пошук по базі (<span id="search-prof-name"></span>)</h1>
@@ -136,7 +127,6 @@
     <div id="search-results"></div>
   </div>
 </div>
-
 <script>
 const DB_FILES = {
   geo: { name: 'Інженер-геодезист', file: 'questions.json', storageKey: 'cert_mistakes_geo' },
@@ -148,7 +138,6 @@ let currentProf = 'geo';
 let quizState = null;
 let timerInterval = null;
 
-// Нормалізація структури питання, щоб працювали будь-які ключі JSON
 function normalizeQuestion(raw, idx) {
   return {
     id: raw.id ?? (idx + 1),
@@ -185,9 +174,8 @@ function selectProfession(prof) {
 }
 
 function getMistakes() {
-  try {
-    return JSON.parse(localStorage.getItem(DB_FILES[currentProf].storageKey) || '[]');
-  } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(DB_FILES[currentProf].storageKey) || '[]'); }
+  catch { return []; }
 }
 
 function saveMistakes(list) {
@@ -217,3 +205,192 @@ function showScreen(id) {
 }
 
 function startQuiz(mode) {
+  const db = databases[currentProf];
+  if (!db || db.length === 0) { alert('База питань ще не завантажена!'); return; }
+
+  let pool = [];
+  if (mode === 'exam') pool = [...db].sort(() => Math.random() - 0.5).slice(0, 50);
+  else if (mode === 'practice') pool = [...db];
+  else if (mode === 'random') pool = [...db].sort(() => Math.random() - 0.5);
+  else if (mode === 'mistakes') {
+    const mIds = getMistakes();
+    pool = db.filter(q => mIds.includes(q.id));
+    if (pool.length === 0) { alert('Список помилок порожній!'); return; }
+  }
+
+  quizState = { mode, questions: pool, index: 0, userAnswers: new Array(pool.length).fill(null), timeLeft: 45 * 60 };
+  document.getElementById('quiz-prof-badge').textContent = DB_FILES[currentProf].name;
+  const timerEl = document.getElementById('quiz-timer');
+  clearInterval(timerInterval);
+
+  if (mode === 'exam') {
+    timerEl.classList.remove('hidden');
+    updateTimerDisplay();
+    timerInterval = setInterval(() => {
+      quizState.timeLeft--;
+      updateTimerDisplay();
+      if (quizState.timeLeft <= 0) finishQuiz();
+    }, 1000);
+  } else {
+    timerEl.classList.add('hidden');
+  }
+
+  showScreen('screen-quiz');
+  renderQuestion();
+}
+
+function updateTimerDisplay() {
+  const m = String(Math.floor(quizState.timeLeft / 60)).padStart(2, '0');
+  const s = String(quizState.timeLeft % 60).padStart(2, '0');
+  document.getElementById('quiz-timer').textContent = `${m}:${s}`;
+}
+
+function renderQuestion() {
+  const q = quizState.questions[quizState.index];
+  const total = quizState.questions.length;
+  const chosen = quizState.userAnswers[quizState.index];
+  const isExam = quizState.mode === 'exam';
+
+  document.getElementById('quiz-progress').textContent = `Питання ${quizState.index + 1} з ${total} (№${q.id})`;
+  document.getElementById('q-text').textContent = `${q.id}. ${q.text}`;
+
+  const optContainer = document.getElementById('q-options');
+  optContainer.innerHTML = '';
+  const letters = ['А', 'Б', 'В', 'Г', 'Д'];
+
+  q.answers.forEach((ansText, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'opt-btn';
+    btn.innerHTML = `<strong>${letters[i] || (i + 1)})</strong> <span>${ansText}</span>`;
+
+    if (chosen !== null) {
+      if (isExam) {
+        if (i === chosen) btn.classList.add('selected');
+      } else {
+        btn.disabled = true;
+        if (i === q.correct) btn.classList.add('correct');
+        else if (i === chosen) btn.classList.add('wrong');
+      }
+    }
+
+    btn.onclick = () => selectAnswer(i);
+    optContainer.appendChild(btn);
+  });
+
+  const expBox = document.getElementById('q-explanation');
+  const fb = document.getElementById('instant-feedback');
+
+  if (!isExam && chosen !== null) {
+    fb.textContent = chosen === q.correct ? '✅ Правильно!' : '❌ Помилка';
+    fb.style.color = chosen === q.correct ? 'var(--success)' : 'var(--danger)';
+    if (q.explanation) {
+      expBox.textContent = `💡 Пояснення: ${q.explanation}`;
+      expBox.classList.remove('hidden');
+    } else {
+      expBox.classList.add('hidden');
+    }
+  } else {
+    fb.textContent = '';
+    expBox.classList.add('hidden');
+  }
+
+  document.getElementById('btn-prev').disabled = quizState.index === 0;
+  document.getElementById('btn-next').textContent = (quizState.index === total - 1) ? 'Завершити тест ✓' : 'Далі →';
+}
+
+function selectAnswer(optIndex) {
+  const q = quizState.questions[quizState.index];
+  quizState.userAnswers[quizState.index] = optIndex;
+  if (optIndex === q.correct) removeMistake(q.id);
+  else addMistake(q.id);
+  renderQuestion();
+}
+
+function prevQuestion() {
+  if (quizState.index > 0) { quizState.index--; renderQuestion(); }
+}
+
+function nextQuestion() {
+  if (quizState.index < quizState.questions.length - 1) { quizState.index++; renderQuestion(); }
+  else finishQuiz();
+}
+
+function finishQuiz() {
+  clearInterval(timerInterval);
+  let correctCount = 0;
+  const reviewEl = document.getElementById('res-review');
+  reviewEl.innerHTML = '';
+
+  quizState.questions.forEach((q, idx) => {
+    const userAns = quizState.userAnswers[idx];
+    const isOk = userAns === q.correct;
+    if (isOk) { correctCount++; removeMistake(q.id); }
+    else { addMistake(q.id); }
+
+    const item = document.createElement('div');
+    item.className = 'search-item';
+    item.style.borderLeft = `4px solid ${isOk ? 'var(--success)' : 'var(--danger)'}`;
+    item.innerHTML = `
+      <div style="font-weight:600; margin-bottom:6px;">${q.id}. ${q.text}</div>
+      <div style="font-size:0.9rem; color:${isOk ? 'var(--success)' : 'var(--danger)'};">
+        Ваша відповідь: ${userAns !== null ? q.answers[userAns] : 'Не надано'}
+      </div>
+      ${!isOk ? `<div style="font-size:0.9rem; color:var(--success); margin-top:4px;">Правильна відповідь: ${q.answers[q.correct]}</div>` : ''}
+    `;
+    reviewEl.appendChild(item);
+  });
+
+  const total = quizState.questions.length;
+  const pct = Math.round((correctCount / total) * 100);
+  document.getElementById('res-title').textContent = quizState.mode === 'exam'
+    ? (correctCount >= 40 ? '🎉 Іспит складено!' : '❌ Іспит не складено')
+    : 'Результат тренування';
+  document.getElementById('res-summary').textContent = `Правильних відповідей: ${correctCount} з ${total} (${pct}%)`;
+  document.getElementById('btn-retry-mistakes').disabled = getMistakes().length === 0;
+  showScreen('screen-result');
+}
+
+function exitToHome() {
+  clearInterval(timerInterval);
+  updateHomeUI();
+  showScreen('screen-home');
+}
+
+function openSearch() {
+  document.getElementById('search-prof-name').textContent = DB_FILES[currentProf].name;
+  document.getElementById('search-input').value = '';
+  showScreen('screen-search');
+  renderSearch();
+}
+
+function renderSearch() {
+  const query = document.getElementById('search-input').value.trim().toLowerCase();
+  const db = databases[currentProf];
+  const container = document.getElementById('search-results');
+  container.innerHTML = '';
+
+  const filtered = query
+    ? db.filter(q => String(q.id) === query || q.text.toLowerCase().includes(query) || q.answers.some(a => a.toLowerCase().includes(query)))
+    : db.slice(0, 30);
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<p style="color:var(--muted);">Нічого не знайдено.</p>';
+    return;
+  }
+
+  filtered.slice(0, 50).forEach(q => {
+    const div = document.createElement('div');
+    div.className = 'search-item';
+    div.innerHTML = `
+      <div style="font-weight:600; margin-bottom:8px;">${q.id}. ${q.text}</div>
+      <div style="color:var(--success); font-weight:500; font-size:0.95rem;">✅ ${q.answers[q.correct] ?? ''}</div>
+      ${q.explanation ? `<div style="color:var(--muted); font-size:0.85rem; margin-top:6px;">${q.explanation}</div>` : ''}
+    `;
+    container.appendChild(div);
+  });
+}
+
+init();
+</script>
+</body>
+</html>
